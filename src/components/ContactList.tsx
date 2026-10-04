@@ -184,9 +184,31 @@ export const ContactList: React.FC<ContactListProps> = ({
           )}
         </div>
 
-        {/* Counter & Sorting row */}
-        <div className="flex items-center justify-between gap-2 text-xs">
-          <span className="text-slate-500 dark:text-slate-400 font-medium">
+        {/* Ligne de Tri & Filtrage des Noms Centrée (Demande utilisateur) */}
+        <div className="flex flex-col items-center justify-center gap-1.5 py-1">
+          {/* Bouton de Tri Centré */}
+          <div className="w-full flex items-center justify-center">
+            <div className="relative inline-flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 border border-slate-200/90 dark:border-slate-700/80 text-slate-800 dark:text-slate-100 transition shadow-2xs group">
+              <ArrowUpDown className="w-3.5 h-3.5 text-sky-500 shrink-0 group-hover:scale-110 transition-transform" />
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Trier les noms :</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortField)}
+                aria-label="Trier les contacts par nom"
+                className="bg-transparent text-xs font-bold text-slate-900 dark:text-slate-100 border-none p-0 pr-1 focus:ring-0 cursor-pointer text-center"
+              >
+                <option value="nameAsc" className="dark:bg-slate-900 text-left">Nom (A → Z)</option>
+                <option value="nameDesc" className="dark:bg-slate-900 text-left">Nom (Z → A)</option>
+                <option value="firstNameAsc" className="dark:bg-slate-900 text-left">Prénom (A → Z)</option>
+                <option value="updatedDesc" className="dark:bg-slate-900 text-left">Récemment modifiés</option>
+                <option value="updatedAsc" className="dark:bg-slate-900 text-left">Plus anciens modifiés</option>
+                <option value="createdDesc" className="dark:bg-slate-900 text-left">Date de création</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Compteur de contacts centré */}
+          <div className="text-center text-[11px] text-slate-500 dark:text-slate-400 font-medium">
             <span className="font-semibold text-slate-900 dark:text-slate-200 font-mono tabular-nums">
               {filteredAndSortedContacts.length}
             </span>{' '}
@@ -196,24 +218,6 @@ export const ContactList: React.FC<ContactListProps> = ({
                 (sur <span className="font-mono tabular-nums">{contacts.length}</span>)
               </span>
             )}
-          </span>
-
-          {/* Sort Selector */}
-          <div className="flex items-center gap-1.5">
-            <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortField)}
-              aria-label="Trier les contacts"
-              className="bg-transparent text-xs font-medium text-slate-700 dark:text-slate-300 py-1 pl-1 pr-6 border-none focus:ring-2 focus:ring-sky-500 rounded-lg cursor-pointer"
-            >
-              <option value="nameAsc" className="dark:bg-slate-900">Nom (A → Z)</option>
-              <option value="nameDesc" className="dark:bg-slate-900">Nom (Z → A)</option>
-              <option value="firstNameAsc" className="dark:bg-slate-900">Prénom (A → Z)</option>
-              <option value="updatedDesc" className="dark:bg-slate-900">Récemment modifiés</option>
-              <option value="updatedAsc" className="dark:bg-slate-900">Plus anciens modifiés</option>
-              <option value="createdDesc" className="dark:bg-slate-900">Date de création</option>
-            </select>
           </div>
         </div>
 

@@ -7,6 +7,8 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  sendPasswordResetEmail,
+  updateProfile,
   User,
 } from 'firebase/auth';
 import {
@@ -102,3 +104,35 @@ export async function deleteContactFromCloud(userId: string, contactId: string):
   const contactDocRef = doc(firestore, 'users', userId, 'contacts', contactId);
   await deleteDoc(contactDocRef);
 }
+
+// Authentication Helpers
+export function subscribeToAuthState(callback: (user: User | null) => void) {
+  return onAuthStateChanged(auth, callback);
+}
+
+export async function loginWithEmail(email: string, pass: string): Promise<User> {
+  const credential = await signInWithEmailAndPassword(auth, email, pass);
+  return credential.user;
+}
+
+export async function registerWithEmail(email: string, pass: string, name?: string): Promise<User> {
+  const credential = await createUserWithEmailAndPassword(auth, email, pass);
+  if (name && credential.user) {
+    await updateProfile(credential.user, { displayName: name });
+  }
+  return credential.user;
+}
+
+export async function loginWithGoogle(): Promise<User> {
+  const credential = await signInWithPopup(auth, googleProvider);
+  return credential.user;
+}
+
+export async function logoutUser(): Promise<void> {
+  await signOut(auth);
+}
+
+export async function resetUserPassword(email: string): Promise<void> {
+  await sendPasswordResetEmail(auth, email);
+}
+

@@ -24,11 +24,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = subscribeToAuthState((user) => {
+    const unsubscribe = subscribeToAuthState((user: User | null) => {
       setCurrentUser(user);
       setLoading(false);
     });
-    return unsubscribe;
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, pass: string) => {

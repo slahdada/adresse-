@@ -43,6 +43,7 @@ export function useFullscreen() {
       if (isNowFullscreen) {
         setIsInAppFullscreen(true);
       }
+      document.documentElement.classList.toggle('app-fullscreen-active', isNowFullscreen);
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
@@ -57,6 +58,13 @@ export function useFullscreen() {
       document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
     };
   }, []);
+
+  // Sync in-app fullscreen class
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const active = isFullscreen || isInAppFullscreen;
+    document.documentElement.classList.toggle('app-fullscreen-active', active);
+  }, [isFullscreen, isInAppFullscreen]);
 
   const toggleFullscreen = useCallback(async () => {
     if (typeof document === 'undefined') return;
@@ -74,8 +82,9 @@ export function useFullscreen() {
 
     if (!isCurrent) {
       try {
+        const options: FullscreenOptions = { navigationUI: 'hide' };
         if (docEl.requestFullscreen) {
-          await docEl.requestFullscreen();
+          await docEl.requestFullscreen(options);
           setIsFullscreen(true);
           setIsInAppFullscreen(true);
           return;
@@ -96,7 +105,7 @@ export function useFullscreen() {
           return;
         }
       } catch (err) {
-        console.warn('Native requestFullscreen failed (possibly in iframe), activating immersive mode:', err);
+        console.warn('Native requestFullscreen failed (possibly in iframe), activating in-app immersive mode:', err);
       }
       // Fallback: In-app immersive fullscreen
       setIsInAppFullscreen(true);
@@ -114,6 +123,19 @@ export function useFullscreen() {
       setIsInAppFullscreen(false);
     }
   }, [isInAppFullscreen]);
+
+  // F11 keyboard shortcut support for PC
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F11') {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleFullscreen]);
 
   const openInNewTab = useCallback(() => {
     if (typeof window !== 'undefined') {
