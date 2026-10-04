@@ -1,0 +1,6 @@
+{
+  "name": "ContactFlow - Carnet d'Adresses Multi-Appareils",
+  "description": "Application PWA moderne et responsive de gestion de contacts multi-appareils avec stockage local sécurisé, recherche instantanée, import/export CSV/vCard et mode hors-ligne.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
