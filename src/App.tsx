@@ -272,6 +272,27 @@ export default function App() {
     }
   };
 
+  // Update contact directly (e.g. voice notes, audio attachments)
+  const handleUpdateContact = async (updatedContact: Contact) => {
+    try {
+      await db.save(updatedContact);
+      if (user) {
+        syncContactsToCloud(user.uid, [updatedContact]).catch(console.error);
+      }
+      setContacts((prev) =>
+        prev.map((c) => (c.id === updatedContact.id ? updatedContact : c))
+      );
+    } catch (err: any) {
+      console.error('Erreur mise à jour contact:', err);
+      setToast({
+        id: `err-${Date.now()}`,
+        type: 'error',
+        title: 'Erreur d’enregistrement',
+        description: err.message || 'Impossible d’enregistrer le mémo vocal.',
+      });
+    }
+  };
+
   // Full Duplicate Management & Cleanup Handlers
   const handleMergeDuplicateGroup = async (group: DuplicateGroup, primaryId: string) => {
     try {
@@ -446,7 +467,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-100/60 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans">
+    <div className="flex flex-col h-[100dvh] min-h-[100dvh] max-h-[100dvh] w-full overflow-hidden bg-slate-100/60 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans">
       {/* Top Bar (adhering to 3-zone contract) */}
       <Navbar
         activeTab={activeTab}
@@ -520,7 +541,7 @@ export default function App() {
       )}
 
       {/* Main Responsive Layout */}
-      <main className="flex-1 flex overflow-hidden pb-18 md:pb-0">
+      <main className="flex-1 flex overflow-hidden pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center p-8 text-slate-400">
             <div className="flex flex-col items-center gap-3">
@@ -591,6 +612,7 @@ export default function App() {
                     onShowClipboardFallback={(text, title) =>
                       setClipboardFallback({ isOpen: true, text, title: title || 'Copie manuelle' })
                     }
+                    onUpdateContact={handleUpdateContact}
                   />
                 </div>
               ) : (

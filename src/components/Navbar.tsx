@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Plus, Download, Moon, Sun, BookUser, HelpCircle, Database, Tag, Mail, User as UserIcon, Copy } from 'lucide-react';
+import { Plus, Download, Moon, Sun, BookUser, HelpCircle, Database, Tag, Mail, User as UserIcon, Copy, Maximize, Minimize } from 'lucide-react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { useTheme } from '../hooks/useTheme';
+import { useFullscreen } from '../hooks/useFullscreen';
 import { User } from 'firebase/auth';
 
 export type ActiveTab = 'contacts' | 'import-export' | 'compatibility';
@@ -30,12 +31,13 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
   const { theme, toggleTheme } = useTheme();
+  const { isFullscreen, toggleFullscreen, isSupported: isFullscreenSupported } = useFullscreen();
   const [showIOSModal, setShowIOSModal] = useState(false);
 
   return (
     <>
-      <header className="sticky top-0 z-30 w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-30 w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors pt-[env(safe-area-inset-top)]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] h-16 flex items-center justify-between gap-4">
           
           {/* Zone 1: Single text wordmark */}
           <button
@@ -87,8 +89,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           </nav>
 
-          {/* Zone 3: Actions (Install, Theme toggle, New Contact) */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          {/* Zone 3: Actions (Plein écran, Theme, Account, Duplicates, Install, New Contact) */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
             {/* Tablet Mode: Quick Categories Drawer Trigger (768px to 1023px) */}
             {onToggleTabletCategories && (
               <button
@@ -101,20 +103,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
-            {/* Manage Duplicates Button (right next to Catégories) */}
+            {/* Manage Duplicates Button (Compact on mobile) */}
             {onOpenDuplicateManager && (
               <button
                 onClick={onOpenDuplicateManager}
                 aria-label="Gérer les doublons et nettoyer les contacts"
-                className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl transition ${
+                className={`inline-flex items-center gap-1.5 px-2 sm:px-3 py-2 text-xs font-semibold rounded-xl transition shrink-0 ${
                   duplicateCount > 0
                     ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-300/80 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/60 shadow-2xs'
-                    : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                    : 'hidden sm:inline-flex bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
                 }`}
               >
-                <Copy className="w-3.5 h-3.5 text-amber-500" />
-                <span className="hidden sm:inline">Gérer les doublons</span>
-                <span className="sm:hidden">Doublons</span>
+                <Copy className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <span className="hidden md:inline">Gérer les doublons</span>
+                <span className="hidden sm:inline md:hidden">Doublons</span>
                 {duplicateCount > 0 && (
                   <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 font-mono">
                     {duplicateCount}
@@ -123,12 +125,13 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
-            {/* Email Access / Account Button */}
+            {/* Email Access / Account Button (Ultra-compact on mobile to prevent overflow) */}
             {onOpenEmailAccess && (
               <button
                 onClick={onOpenEmailAccess}
                 aria-label={currentUser ? `Compte connecté: ${currentUser.email}` : "Accès par e-mail et synchronisation"}
-                className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl transition ${
+                title={currentUser ? `Compte: ${currentUser.email}` : "Connexion compte & Synchronisation"}
+                className={`inline-flex items-center gap-1.5 px-2 sm:px-3 py-2 text-xs font-semibold rounded-xl transition shrink-0 ${
                   currentUser
                     ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80'
                     : 'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border border-sky-200/80 dark:border-sky-800/80 hover:bg-sky-100 dark:hover:bg-sky-900/60'
@@ -137,12 +140,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {currentUser ? (
                   <>
                     <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
-                    <span className="max-w-[110px] sm:max-w-[140px] truncate">{currentUser.email}</span>
+                    <span className="hidden sm:inline max-w-[130px] truncate">{currentUser.email}</span>
+                    <span className="sm:hidden font-mono uppercase font-bold text-[11px]">
+                      {currentUser.email?.charAt(0) || 'U'}
+                    </span>
                   </>
                 ) : (
                   <>
-                    <Mail className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-                    <span>Accès par E-mail</span>
+                    <Mail className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+                    <span className="hidden sm:inline">Accès E-mail</span>
                   </>
                 )}
               </button>
@@ -153,38 +159,48 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 onClick={install}
                 aria-label="Installer l'application sur cet appareil"
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 transition shadow-xs"
+                className="hidden lg:inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 transition shadow-xs shrink-0"
               >
                 <Download className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-                Installer l'application
+                Installer l'app
               </button>
             )}
 
-            {/* Install PWA Guide (iOS Safari) */}
-            {isIOS && !isInstalled && (
-              <button
-                onClick={() => setShowIOSModal(true)}
-                aria-label="Comment installer sur iPhone ou iPad"
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-              >
-                <Download className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-                Installer sur iOS
-              </button>
-            )}
+            {/* PROMINENT FULLSCREEN BUTTON (Always visible across mobile, tablet, and desktop) */}
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              aria-label={isFullscreen ? 'Quitter le mode plein écran' : 'Activer le mode plein écran'}
+              title={isFullscreen ? 'Quitter le plein écran' : 'Passer en plein écran immersif'}
+              className={`min-h-[40px] px-2.5 sm:px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 shrink-0 ${
+                isFullscreen
+                  ? 'bg-sky-600 text-white shadow-sm shadow-sky-600/30 ring-2 ring-sky-400/40 active:bg-sky-700'
+                  : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80 active:scale-95'
+              }`}
+            >
+              {isFullscreen ? (
+                <Minimize className="w-4 h-4 text-white shrink-0" />
+              ) : (
+                <Maximize className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0" />
+              )}
+              <span className="hidden sm:inline">
+                {isFullscreen ? 'Réduire' : 'Plein écran'}
+              </span>
+            </button>
 
             {/* Dark/Light mode toggle */}
             <button
               onClick={toggleTheme}
               aria-label={theme === 'dark' ? 'Activer le mode clair' : 'Activer le mode sombre'}
-              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0"
             >
-              {theme === 'dark' ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5" />}
+              {theme === 'dark' ? <Sun className="w-4.5 h-4.5 text-amber-400" /> : <Moon className="w-4.5 h-4.5" />}
             </button>
 
             {/* Primary Action: New Contact (hidden on small mobile since it's prominent in the bottom bar) */}
             <button
               onClick={onNewContact}
-              className="hidden sm:inline-flex items-center gap-1.5 min-h-[44px] px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-sky-600 hover:bg-sky-700 text-white transition shadow-sm active:scale-95"
+              className="hidden sm:inline-flex items-center gap-1.5 min-h-[40px] px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-sky-600 hover:bg-sky-700 text-white transition shadow-sm active:scale-95 shrink-0"
             >
               <Plus className="w-4 h-4 shrink-0" />
               <span className="whitespace-nowrap">Nouveau contact</span>
@@ -231,7 +247,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Import / Export Tab */}
           <button
             onClick={() => setActiveTab('import-export')}
-            className={`min-h-[48px] min-w-[56px] flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
+            className={`min-h-[48px] min-w-[50px] flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
               activeTab === 'import-export'
                 ? 'text-sky-600 dark:text-sky-400 font-semibold'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
@@ -243,10 +259,27 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>Sauvegardes</span>
           </button>
 
+          {/* Quick Fullscreen Toggle Tab (in thumb zone) */}
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            aria-label={isFullscreen ? 'Quitter le mode plein écran' : 'Activer le mode plein écran'}
+            className={`min-h-[48px] min-w-[50px] flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
+              isFullscreen
+                ? 'text-sky-600 dark:text-sky-400 font-bold'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            <div className={`p-1 rounded-lg ${isFullscreen ? 'bg-sky-100 dark:bg-sky-900/60 text-sky-600' : ''}`}>
+              {isFullscreen ? <Minimize className="w-5 h-5 text-sky-600" /> : <Maximize className="w-5 h-5" />}
+            </div>
+            <span>{isFullscreen ? 'Réduire' : 'Plein écran'}</span>
+          </button>
+
           {/* Aide & Tests Tab */}
           <button
             onClick={() => setActiveTab('compatibility')}
-            className={`min-h-[48px] min-w-[56px] flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
+            className={`min-h-[48px] min-w-[50px] flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
               activeTab === 'compatibility'
                 ? 'text-sky-600 dark:text-sky-400 font-semibold'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
@@ -255,7 +288,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className={`p-1 rounded-lg ${activeTab === 'compatibility' ? 'bg-sky-50 dark:bg-sky-950/60' : ''}`}>
               <HelpCircle className="w-5 h-5" />
             </div>
-            <span>Aide & Tests</span>
+            <span>Aide</span>
           </button>
         </div>
       </nav>

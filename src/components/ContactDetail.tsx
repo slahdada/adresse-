@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Contact } from '../types/contact';
+import { Contact, VoiceNote } from '../types/contact';
 import {
   Phone,
   Mail,
@@ -16,9 +16,12 @@ import {
   Building2,
   Calendar,
   ExternalLink,
+  Mic,
 } from 'lucide-react';
 import { contactToVCard } from '../services/vcard';
 import { getWhatsAppUrl } from '../services/phone';
+import { AudioPlayer } from './AudioPlayer';
+import { VoiceNoteRecorder } from './VoiceNoteRecorder';
 
 // Official WhatsApp Vector Icon
 const WhatsAppIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
@@ -39,6 +42,7 @@ interface ContactDetailProps {
   onDelete: () => void;
   onToggleFavorite: () => void;
   onShowClipboardFallback: (text: string, title?: string) => void;
+  onUpdateContact?: (updatedContact: Contact) => void;
 }
 
 export const ContactDetail: React.FC<ContactDetailProps> = ({
@@ -48,9 +52,47 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
   onDelete,
   onToggleFavorite,
   onShowClipboardFallback,
+  onUpdateContact,
 }) => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isRecordingOpen, setIsRecordingOpen] = useState(false);
+
+  const voiceNotes = contact.voiceNotes || [];
+
+  const handleAddVoiceNote = (newVoiceNote: VoiceNote) => {
+    const updated: Contact = {
+      ...contact,
+      voiceNotes: [newVoiceNote, ...voiceNotes],
+      updatedAt: new Date().toISOString(),
+    };
+    if (onUpdateContact) {
+      onUpdateContact(updated);
+    }
+    setIsRecordingOpen(false);
+  };
+
+  const handleDeleteVoiceNote = (id: string) => {
+    const updated: Contact = {
+      ...contact,
+      voiceNotes: voiceNotes.filter((vn) => vn.id !== id),
+      updatedAt: new Date().toISOString(),
+    };
+    if (onUpdateContact) {
+      onUpdateContact(updated);
+    }
+  };
+
+  const handleRenameVoiceNote = (id: string, newTitle: string) => {
+    const updated: Contact = {
+      ...contact,
+      voiceNotes: voiceNotes.map((vn) => (vn.id === id ? { ...vn, title: newTitle } : vn)),
+      updatedAt: new Date().toISOString(),
+    };
+    if (onUpdateContact) {
+      onUpdateContact(updated);
+    }
+  };
 
   const isCompany = contact.type === 'company';
   const displayName = isCompany
@@ -461,6 +503,69 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
               </div>
             </div>
           )}
+
+          {/* Mémos Vocaux (Voice Memos) */}
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">
+                  Mémos Vocaux
+                </span>
+                {voiceNotes.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 font-mono">
+                    {voiceNotes.length}
+                  </span>
+                )}
+              </div>
+
+              {!isRecordingOpen && (
+                <button
+                  type="button"
+                  onClick={() => setIsRecordingOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 text-xs font-semibold border border-rose-200/80 dark:border-rose-900/60 transition shadow-2xs active:scale-95"
+                >
+                  <Mic className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                  <span>Nouveau mémo</span>
+                </button>
+              )}
+            </div>
+
+            {/* Recorder Interface when opened */}
+            {isRecordingOpen && (
+              <VoiceNoteRecorder
+                onSaveVoiceNote={handleAddVoiceNote}
+                onCancel={() => setIsRecordingOpen(false)}
+              />
+            )}
+
+            {/* List of Voice Notes with Audio Player */}
+            {voiceNotes.length > 0 ? (
+              <div className="space-y-2.5">
+                {voiceNotes.map((vn) => (
+                  <AudioPlayer
+                    key={vn.id}
+                    voiceNote={vn}
+                    onDelete={handleDeleteVoiceNote}
+                    onRename={handleRenameVoiceNote}
+                  />
+                ))}
+              </div>
+            ) : !isRecordingOpen ? (
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/30 border border-dashed border-slate-200 dark:border-slate-800 text-center">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Aucun mémo vocal enregistré pour ce contact.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setIsRecordingOpen(true)}
+                  className="mt-2 inline-flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400 font-semibold hover:underline"
+                >
+                  <Mic className="w-3.5 h-3.5" />
+                  <span>Enregistrer une note vocale</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
 
           {/* Timestamps */}
           <div className="pt-4 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap items-center gap-4 text-xs text-slate-400 dark:text-slate-500">

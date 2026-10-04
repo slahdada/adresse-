@@ -15,11 +15,14 @@
     min-height: 100%;
     min-height: 100dvh;
     overflow-x: hidden;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
   }
 
   /* Prevent automatic text resizing on mobile Safari/Chrome */
   html {
     -webkit-text-size-adjust: 100%;
+    touch-action: manipulation;
   }
 
   /* Accessible focus indicators */

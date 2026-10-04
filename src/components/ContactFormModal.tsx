@@ -389,6 +389,7 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
       notes: notes.trim(),
       avatar,
       isFavorite,
+      voiceNotes: initialContact?.voiceNotes || [],
       createdAt: initialContact?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

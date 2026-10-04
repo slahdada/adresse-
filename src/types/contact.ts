@@ -23,6 +23,16 @@ export interface AddressInfo {
   country: string;
 }
 
+export interface VoiceNote {
+  id: string;
+  title: string;
+  audioBase64: string; // Data URL: "data:audio/...;base64,..."
+  durationSeconds: number;
+  createdAt: string; // ISO string
+  mimeType: string;
+  fileSize?: number;
+}
+
 export interface Contact {
   id: string;
   type: ContactType;
@@ -38,6 +48,7 @@ export interface Contact {
   notes: string;
   avatar?: string; // Data URL or empty
   isFavorite: boolean;
+  voiceNotes?: VoiceNote[];
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
 }

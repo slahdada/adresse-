@@ -41,7 +41,12 @@ export const ContactList: React.FC<ContactListProps> = ({
   setSortBy,
   onNewContact,
 }) => {
-  const [isDashboardExpanded, setIsDashboardExpanded] = useState(true);
+  const [isDashboardExpanded, setIsDashboardExpanded] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768;
+    }
+    return false;
+  });
 
   const totalContactsCount = contacts.length;
   const favoritesCount = useMemo(
@@ -233,6 +238,36 @@ export const ContactList: React.FC<ContactListProps> = ({
               {isDashboardExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
             </button>
           </div>
+
+          {!isDashboardExpanded && (
+            <div className="flex items-center gap-2 pb-1 text-xs">
+              <button
+                type="button"
+                onClick={() => setSelectedCategory('all')}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${
+                  selectedCategory === 'all'
+                    ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 border border-sky-300 dark:border-sky-800'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <Users className="w-3 h-3 text-sky-500" />
+                <span>{totalContactsCount} contacts</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedCategory('favorites')}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${
+                  selectedCategory === 'favorites'
+                    ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-800'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <Star className="w-3 h-3 text-amber-500 fill-amber-500/30" />
+                <span>{favoritesCount} favoris</span>
+              </button>
+            </div>
+          )}
 
           {isDashboardExpanded && (
             <div className="space-y-2.5 animate-in fade-in duration-150">

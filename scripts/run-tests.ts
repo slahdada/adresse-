@@ -6,7 +6,8 @@ import { sanitizeCsvField, exportContactsToCsv, parseCsv, generateSampleCsv } fr
 import { contactToVCard, parseVCard, exportContactsToVCard } from '../src/services/vcard';
 import { findDuplicates, normalizeText, normalizePhone, normalizeEmail, mergeContactFields, findDuplicateGroups, mergeMultipleContacts } from '../src/services/duplicate';
 import { getWhatsAppUrl, getTelUrl, getSmsUrl } from '../src/services/phone';
-import { Contact } from '../src/types/contact';
+import { Contact, VoiceNote } from '../src/types/contact';
+import { formatAudioDuration, formatFileSize } from '../src/components/AudioPlayer';
 
 let totalTests = 0;
 let passedTests = 0;
@@ -217,6 +218,49 @@ const mergedResult = mergeMultipleContacts([c1, c2]);
 assert(mergedResult.merged.phones.length === 2, 'Fusion des numéros de téléphone sans écrasement');
 assert(mergedResult.merged.emails.length === 2, 'Combinaison des adresses e-mails sous la fiche fusionnée');
 assert(mergedResult.removedIds.includes('c2'), 'Identification correcte des identifiants doublons à supprimer');
+
+// 10. Mémos Vocaux & Lecteur Audio Intégré
+console.log('\nSuite 10: Mémos Vocaux (Voice Notes) & Lecteur Audio');
+assert(formatAudioDuration(0) === '0:00', 'Formatage durée 0 seconde');
+assert(formatAudioDuration(45) === '0:45', 'Formatage durée 45 secondes');
+assert(formatAudioDuration(125) === '2:05', 'Formatage durée 2 minutes 5 secondes');
+assert(formatFileSize(1048576) === '1.0 Mo', 'Formatage taille fichier 1 Mo');
+
+const sampleVoiceNote: VoiceNote = {
+  id: 'vn-test-1',
+  title: 'Consignes réunion',
+  audioBase64: 'data:audio/webm;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQRChYECGFOAZwEAAAAA',
+  durationSeconds: 15,
+  createdAt: new Date().toISOString(),
+  mimeType: 'audio/webm',
+  fileSize: 45000,
+};
+
+const contactWithVoiceNote: Contact = {
+  ...testContact,
+  id: 'c-vn-1',
+  voiceNotes: [sampleVoiceNote],
+};
+
+const contactToMerge: Contact = {
+  ...testContact,
+  id: 'c-vn-2',
+  voiceNotes: [
+    {
+      id: 'vn-test-2',
+      title: 'Second mémo vocal',
+      audioBase64: 'data:audio/webm;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQRChYECGFOAZwEAAAAAA==',
+      durationSeconds: 30,
+      createdAt: new Date().toISOString(),
+      mimeType: 'audio/webm',
+      fileSize: 92000,
+    },
+  ],
+};
+
+const mergedWithAudio = mergeContactFields(contactWithVoiceNote, contactToMerge);
+assert(Boolean(mergedWithAudio.voiceNotes && mergedWithAudio.voiceNotes.length === 2), 'Fusion et préservation intégrale des mémos vocaux');
+assert(Boolean(mergedWithAudio.voiceNotes?.[0]?.audioBase64.startsWith('data:audio/webm;base64,')), 'Préservation de la chaîne Base64 de stockage local');
 
 console.log('\n------------------------------------------------------');
 console.log(`Résultats : ${passedTests}/${totalTests} tests réussis (${failedTests} échec(s)).`);

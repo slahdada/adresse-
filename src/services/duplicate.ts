@@ -175,6 +175,18 @@ export function mergeContactFields(existing: Contact, incoming: Partial<Contact>
     }
   }
 
+  // Merge voice notes without duplicate audio/ids
+  const existingAudio = new Set((existing.voiceNotes || []).map((vn) => vn.audioBase64 || vn.id));
+  const newVoiceNotes = [...(existing.voiceNotes || [])];
+  (incoming.voiceNotes || []).forEach((vn) => {
+    const key = vn.audioBase64 || vn.id;
+    if (key && !existingAudio.has(key)) {
+      newVoiceNotes.push(vn);
+      existingAudio.add(key);
+    }
+  });
+  merged.voiceNotes = newVoiceNotes;
+
   merged.updatedAt = new Date().toISOString();
   return merged;
 }
