@@ -37,6 +37,8 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   const [activeTab, setActiveTab] = useState<'export' | 'import' | 'backup'>('export');
   const [exportScope, setExportScope] = useState<'all' | 'filtered'>('all');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const vcfFileInputRef = useRef<HTMLInputElement>(null);
+  const csvFileInputRef = useRef<HTMLInputElement>(null);
   const jsonRestoreInputRef = useRef<HTMLInputElement>(null);
 
   // Import State
@@ -485,29 +487,90 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
           {activeTab === 'import' && (
             <div className="space-y-6">
               {!importFile ? (
-                /* File Selection Dropzone */
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="p-8 border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-sky-500 dark:hover:border-sky-500 rounded-2xl bg-slate-50 dark:bg-slate-900/40 text-center cursor-pointer transition flex flex-col items-center justify-center gap-3"
-                >
+                /* Mode Selection & Dropzone */
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Mode 1: vCard .vcf */}
+                    <div className="p-5 rounded-2xl border-2 border-sky-500/40 dark:border-sky-500/30 bg-sky-50/50 dark:bg-sky-950/20 hover:border-sky-500 dark:hover:border-sky-400 transition flex flex-col justify-between gap-3.5">
+                      <div className="space-y-2">
+                        <div className="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center shadow-xs">
+                          <FileText className="w-5 h-5" />
+                        </div>
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                          Mode vCard (.vcf)
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">
+                            Recommandé
+                          </span>
+                        </h4>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                          Format universel idéal pour importer vos contacts depuis un <strong>iPhone</strong>, <strong>Android</strong>, <strong>Google Contacts</strong> ou <strong>Outlook</strong>. Restitue fidèlement les photos, emails, adresses et multiples téléphones.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => vcfFileInputRef.current?.click()}
+                        className="min-h-[44px] flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-sky-600 hover:bg-sky-700 text-white transition shadow-xs active:scale-95"
+                      >
+                        <Upload className="w-4 h-4" />
+                        Sélectionner un fichier .vcf
+                      </button>
+                    </div>
+
+                    {/* Mode 2: CSV Spreadsheet */}
+                    <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700 transition flex flex-col justify-between gap-3.5">
+                      <div className="space-y-2">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                          <FileSpreadsheet className="w-5 h-5" />
+                        </div>
+                        <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                          Mode Tableur (.csv)
+                        </h4>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                          Importez un export CSV depuis Excel, LibreOffice ou Google Sheets. Détection automatique des en-têtes et correspondance flexible des colonnes.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => csvFileInputRef.current?.click()}
+                        className="min-h-[44px] flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 transition"
+                      >
+                        <Upload className="w-4 h-4" />
+                        Sélectionner un fichier .csv
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* General Drag & Drop zone */}
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-5 border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-sky-500 dark:hover:border-sky-500 rounded-2xl bg-slate-50 dark:bg-slate-900/40 text-center cursor-pointer transition flex items-center justify-center gap-3 text-xs text-slate-500 dark:text-slate-400"
+                  >
+                    <Upload className="w-4 h-4 text-sky-500" />
+                    <span>Ou glissez-déposez n'importe quel fichier <strong>.vcf, .csv ou .json</strong> ici</span>
+                  </div>
+
+                  {/* Hidden inputs */}
                   <input
-                    ref={fileInputRef}
+                    ref={vcfFileInputRef}
                     type="file"
-                    accept=".csv,.txt,.vcf,.json"
+                    accept=".vcf,text/vcard"
                     onChange={handleFileSelected}
                     className="hidden"
                   />
-                  <div className="w-12 h-12 rounded-2xl bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center">
-                    <Upload className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      Choisir un fichier à importer
-                    </h4>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      Glissez un fichier ou cliquez ici (Formats acceptés : <strong>CSV, vCard .vcf, JSON</strong>).
-                    </p>
-                  </div>
+                  <input
+                    ref={csvFileInputRef}
+                    type="file"
+                    accept=".csv,.txt,text/csv"
+                    onChange={handleFileSelected}
+                    className="hidden"
+                  />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".vcf,.csv,.txt,.json,text/vcard,text/csv"
+                    onChange={handleFileSelected}
+                    className="hidden"
+                  />
                 </div>
               ) : importSummary ? (
                 /* Import Summary Result */
@@ -710,6 +773,73 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                     </div>
                   )}
 
+                  {/* vCard Preview Step */}
+                  {importType === 'vcf' && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                          Contacts reconnus dans le fichier vCard (.vcf)
+                        </span>
+                        <span className="text-xs font-semibold text-sky-600 dark:text-sky-400">
+                          {parsedContactsToImport.length} fiche(s) analysée(s)
+                        </span>
+                      </div>
+
+                      <div className="max-h-64 overflow-y-auto space-y-2 p-1 rounded-2xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800/80 bg-white dark:bg-slate-900">
+                        {parsedContactsToImport.map((c, idx) => {
+                          const name =
+                            `${c.firstName || ''} ${c.lastName || ''}`.trim() ||
+                            c.company ||
+                            'Sans nom';
+                          return (
+                            <div
+                              key={idx}
+                              className="p-3 flex items-center justify-between gap-3 text-xs"
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                {c.avatar ? (
+                                  <img
+                                    src={c.avatar}
+                                    alt=""
+                                    className="w-9 h-9 rounded-xl object-cover shrink-0 border border-slate-200 dark:border-slate-700"
+                                  />
+                                ) : (
+                                  <div className="w-9 h-9 rounded-xl bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center font-bold text-xs shrink-0">
+                                    {name.substring(0, 2).toUpperCase()}
+                                  </div>
+                                )}
+                                <div className="min-w-0">
+                                  <div className="font-semibold text-slate-900 dark:text-slate-100 truncate">
+                                    {name}
+                                  </div>
+                                  <div className="text-[11px] text-slate-500 truncate">
+                                    {c.company ||
+                                      (c.phones && c.phones[0]?.number) ||
+                                      (c.emails && c.emails[0]?.email) ||
+                                      'Aucune coordonnée'}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 shrink-0 text-[10px]">
+                                {c.phones && c.phones.length > 0 && (
+                                  <span className="px-2 py-0.5 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 font-mono">
+                                    {c.phones.length} tél.
+                                  </span>
+                                )}
+                                {c.emails && c.emails.length > 0 && (
+                                  <span className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                                    {c.emails.length} email
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Duplicate Handling Policy */}
                   <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-2">
                     <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 block">
@@ -763,7 +893,13 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                       className="min-h-[44px] px-6 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white transition shadow-xs flex items-center gap-2"
                     >
                       <Upload className="w-4 h-4" />
-                      <span>{isProcessing ? 'Traitement en cours...' : 'Lancer l’importation'}</span>
+                      <span>
+                        {isProcessing
+                          ? 'Traitement en cours...'
+                          : importType === 'vcf'
+                            ? `Importer ces ${parsedContactsToImport.length} contacts vCard`
+                            : 'Lancer l’importation'}
+                      </span>
                     </button>
                   </div>
                 </div>

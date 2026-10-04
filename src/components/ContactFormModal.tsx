@@ -1,6 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Contact, ContactType, PhoneEntry, EmailEntry } from '../types/contact';
-import { X, Plus, Trash2, Camera, Upload, AlertCircle, Building2, User } from 'lucide-react';
+import {
+  X,
+  Plus,
+  Trash2,
+  Camera,
+  Upload,
+  AlertCircle,
+  Building2,
+  User,
+  RefreshCw,
+  Check,
+} from 'lucide-react';
 
 interface ContactFormModalProps {
   isOpen: boolean;
@@ -13,6 +24,41 @@ interface ContactFormModalProps {
 
 const PREDEFINED_CATEGORIES = ['Personnel', 'Travail', 'Famille', 'Amis', 'VIP', 'Partenaire', 'Santé'];
 
+/**
+ * Optimizes and crops avatar photos to a lightweight square 400x400 JPEG data URL
+ * preventing memory choke and localStorage / IndexedDB quota exceeded errors.
+ */
+function processAndCompressImage(file: File | Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const TARGET_SIZE = 400;
+        const minDim = Math.min(img.width, img.height);
+        const startX = (img.width - minDim) / 2;
+        const startY = (img.height - minDim) / 2;
+
+        canvas.width = TARGET_SIZE;
+        canvas.height = TARGET_SIZE;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(e.target?.result as string);
+          return;
+        }
+
+        ctx.drawImage(img, startX, startY, minDim, minDim, 0, 0, TARGET_SIZE, TARGET_SIZE);
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
+      };
+      img.onerror = () => reject(new Error('Image invalide ou illisible'));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error('Erreur de lecture du fichier'));
+    reader.readAsDataURL(file);
+  });
+}
+
 export const ContactFormModal: React.FC<ContactFormModalProps> = ({
   isOpen,
   onClose,
@@ -21,6 +67,13 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  // Live Camera state
+  const [isLiveCameraOpen, setIsLiveCameraOpen] = useState(false);
+  const [cameraFacingMode, setCameraFacingMode] = useState<'user' | 'environment'>('user');
 
   // Form State
   const [type, setType] = useState<ContactType>('person');
@@ -49,6 +102,87 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+
+  // Cleanup active camera stream when modal closes
+  const stopLiveCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    setIsLiveCameraOpen(false);
+  };
+
+  useEffect(() => {
+    if (!isOpen) {
+      stopLiveCamera();
+    }
+  }, [isOpen]);
+
+  // Bind live camera video stream
+  useEffect(() => {
+    if (isLiveCameraOpen && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [isLiveCameraOpen]);
+
+  // Start live camera stream with automatic fallback to native mobile camera
+  const startCamera = async (mode: 'user' | 'environment' = cameraFacingMode) => {
+    try {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: mode, width: { ideal: 640 }, height: { ideal: 640 } },
+          audio: false,
+        });
+        streamRef.current = stream;
+        setCameraFacingMode(mode);
+        setIsLiveCameraOpen(true);
+      } else {
+        cameraInputRef.current?.click();
+      }
+    } catch (err) {
+      console.warn('getUserMedia non accessible, bascule vers la caméra native système:', err);
+      cameraInputRef.current?.click();
+    }
+  };
+
+  const switchCameraFacingMode = () => {
+    const nextMode = cameraFacingMode === 'user' ? 'environment' : 'user';
+    startCamera(nextMode);
+  };
+
+  const captureLiveSnapshot = () => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    const TARGET_SIZE = 400;
+
+    const vWidth = video.videoWidth || 640;
+    const vHeight = video.videoHeight || 480;
+    const minDim = Math.min(vWidth, vHeight);
+    const startX = (vWidth - minDim) / 2;
+    const startY = (vHeight - minDim) / 2;
+
+    canvas.width = TARGET_SIZE;
+    canvas.height = TARGET_SIZE;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      // Mirror if front camera for natural selfie look
+      if (cameraFacingMode === 'user') {
+        ctx.translate(TARGET_SIZE, 0);
+        ctx.scale(-1, 1);
+      }
+      ctx.drawImage(video, startX, startY, minDim, minDim, 0, 0, TARGET_SIZE, TARGET_SIZE);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      setAvatar(dataUrl);
+      setIsDirty(true);
+    }
+    stopLiveCamera();
+  };
 
   // Initialize form
   useEffect(() => {
@@ -187,8 +321,8 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
     }
   };
 
-  // Handle image upload
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle image upload from file or native camera
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -197,12 +331,17 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setAvatar(reader.result as string);
+    try {
+      const compressedDataUrl = await processAndCompressImage(file);
+      setAvatar(compressedDataUrl);
       setIsDirty(true);
-    };
-    reader.readAsDataURL(file);
+      setErrorMessage(null);
+    } catch {
+      setErrorMessage('Impossible de traiter la photo sélectionnée.');
+    } finally {
+      // Clear value so the user can re-select if desired
+      e.target.value = '';
+    }
   };
 
   // Form submission with validation
@@ -337,41 +476,68 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
             </div>
           </div>
 
-          {/* Photo / Avatar Upload */}
-          <div className="flex items-center gap-4">
+          {/* Photo / Avatar Upload & Live Camera */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800">
             <div className="relative shrink-0">
               {avatar ? (
                 <img
                   src={avatar}
-                  alt="Aperçu"
+                  alt="Aperçu du contact"
                   referrerPolicy="no-referrer"
-                  className="w-16 h-16 rounded-2xl object-cover border border-slate-200 dark:border-slate-700"
+                  className="w-18 h-18 rounded-2xl object-cover border-2 border-sky-500/50 shadow-xs"
                 />
               ) : (
-                <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
-                  <Camera className="w-6 h-6" />
+                <div className="w-18 h-18 rounded-2xl bg-slate-200/80 dark:bg-slate-700/60 flex items-center justify-center text-slate-400 dark:text-slate-500 border border-dashed border-slate-300 dark:border-slate-600">
+                  <Camera className="w-7 h-7" />
                 </div>
               )}
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-2 flex-1 min-w-0">
+              {/* Hidden file input for gallery picker */}
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
                 onChange={handlePhotoUpload}
                 className="hidden"
-                id="photo-upload-input"
+                id="photo-gallery-input"
               />
-              <div className="flex items-center gap-2">
+              {/* Hidden file input for native device camera fallback */}
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="user"
+                onChange={handlePhotoUpload}
+                className="hidden"
+                id="photo-camera-input"
+              />
+
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Button 1: Live Camera / Capture photo */}
+                <button
+                  type="button"
+                  onClick={() => startCamera('user')}
+                  aria-label="Prendre une photo avec l'appareil photo"
+                  className="min-h-[40px] px-3.5 flex items-center gap-1.5 text-xs font-semibold rounded-xl bg-sky-600 hover:bg-sky-700 text-white transition shadow-xs active:scale-95"
+                >
+                  <Camera className="w-4 h-4" />
+                  <span>Prendre une photo</span>
+                </button>
+
+                {/* Button 2: Choose from gallery */}
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
+                  aria-label="Choisir une image depuis les fichiers"
                   className="min-h-[40px] px-3 flex items-center gap-1.5 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  {avatar ? 'Changer la photo' : 'Ajouter une photo'}
+                  <span>Galerie</span>
                 </button>
+
+                {/* Button 3: Remove photo if set */}
                 {avatar && (
                   <button
                     type="button"
@@ -379,14 +545,16 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
                       setAvatar('');
                       setIsDirty(true);
                     }}
-                    className="min-h-[40px] px-2.5 text-xs font-medium text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition"
+                    aria-label="Supprimer la photo actuelle"
+                    className="min-h-[40px] px-2.5 text-xs font-medium text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition flex items-center gap-1"
                   >
-                    Supprimer
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Supprimer</span>
                   </button>
                 )}
               </div>
-              <p className="text-[11px] text-slate-400">
-                Format PNG, JPG ou WebP conservé localement.
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Prise de vue directe ou fichier image. Optimisé et stocké localement sans perte.
               </p>
             </div>
           </div>
@@ -768,6 +936,87 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Live Camera Viewfinder Modal */}
+      {isLiveCameraOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Prise de photo en direct"
+          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-150"
+        >
+          <div className="w-full max-w-sm rounded-3xl bg-slate-900 border border-slate-800 p-5 shadow-2xl flex flex-col items-center gap-4 text-white">
+            <div className="w-full flex items-center justify-between pb-1">
+              <span className="text-sm font-semibold flex items-center gap-2">
+                <Camera className="w-4 h-4 text-sky-400" />
+                Appareil photo
+              </span>
+              <button
+                type="button"
+                onClick={stopLiveCamera}
+                className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                aria-label="Fermer la caméra"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Video Viewfinder */}
+            <div className="relative w-64 h-64 sm:w-72 sm:h-72 rounded-2xl overflow-hidden bg-black border-2 border-slate-700 shadow-inner flex items-center justify-center">
+              <video
+                ref={videoRef}
+                playsInline
+                muted
+                autoPlay
+                className={`w-full h-full object-cover ${cameraFacingMode === 'user' ? '-scale-x-100' : ''}`}
+              />
+              {/* Subtle targeting circle */}
+              <div className="pointer-events-none absolute inset-4 border border-white/25 rounded-full" />
+            </div>
+
+            {/* Camera Controls */}
+            <div className="w-full flex items-center justify-around pt-2">
+              {/* Switch front/back camera */}
+              <button
+                type="button"
+                onClick={switchCameraFacingMode}
+                title="Changer de caméra (avant/arrière)"
+                aria-label="Basculer entre caméra avant et arrière"
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
+              >
+                <RefreshCw className="w-5 h-5" />
+              </button>
+
+              {/* Large circular shutter button */}
+              <button
+                type="button"
+                onClick={captureLiveSnapshot}
+                aria-label="Prendre la photo"
+                title="Prendre la photo"
+                className="w-16 h-16 rounded-full bg-white text-slate-900 flex items-center justify-center shadow-lg active:scale-90 transition hover:bg-slate-100 ring-4 ring-sky-500/50"
+              >
+                <div className="w-12 h-12 rounded-full border-2 border-slate-900 flex items-center justify-center">
+                  <Camera className="w-6 h-6 text-slate-900" />
+                </div>
+              </button>
+
+              {/* Native camera file picker fallback button */}
+              <button
+                type="button"
+                onClick={() => {
+                  stopLiveCamera();
+                  cameraInputRef.current?.click();
+                }}
+                title="Utiliser l'application Caméra du téléphone"
+                aria-label="Utiliser l'application Caméra du téléphone"
+                className="min-h-[44px] px-2.5 flex items-center justify-center rounded-2xl bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-300 transition"
+              >
+                App Caméra
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Discard changes prompt */}
       {showDiscardConfirm && (

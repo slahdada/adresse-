@@ -6,7 +6,9 @@ import { sanitizeCsvField, exportContactsToCsv, parseCsv, generateSampleCsv } fr
 import { contactToVCard, parseVCard, exportContactsToVCard } from '../src/services/vcard';
 import { findDuplicates, normalizeText, normalizePhone, normalizeEmail, mergeContactFields } from '../src/services/duplicate';
 import { getWhatsAppUrl, getTelUrl, getSmsUrl } from '../src/services/phone';
+import { generateMailtoLink, formatCurrency, formatFileSize, getQuoteStatusInfo } from '../src/services/quotes';
 import { Contact } from '../src/types/contact';
+import { QuoteItem } from '../src/types/quote';
 
 let totalTests = 0;
 let passedTests = 0;
@@ -104,6 +106,23 @@ assert(parsedVCards.length === 1, 'vCard analysée avec succès');
 assert(parsedVCards[0].lastName === 'de Saint-Germain', 'Nom de famille restitué fidèlement');
 assert(parsedVCards[0].firstName === 'Éléonore', 'Prénom accentué restitué fidèlement');
 
+// Advanced vCard Features: Line unfolding & Quoted-Printable decoding
+const foldedAndQpCard = `BEGIN:VCARD
+VERSION:2.1
+N;CHARSET=UTF-8;ENCODING=QUOTED-PRINTABLE:Dup=C3=A9ron;H=C3=A9l=C3=A8ne;;;
+FN;CHARSET=UTF-8;ENCODING=QUOTED-PRINTABLE:H=C3=A9l=C3=A8ne Dup=C3=A9ron
+TEL;TYPE=cell:tel:+33612345678
+NOTE;CHARSET=UTF-8:Ceci est une note tr=C3=A8s longue qui a 
+ =C3=A9t=C3=A9 pli=C3=A9e selon la norme RFC 2426
+END:VCARD`;
+
+const parsedQp = parseVCard(foldedAndQpCard);
+assert(parsedQp.length === 1, 'vCard Quoted-Printable et pliée analysée');
+assert(parsedQp[0].lastName === 'Dupéron', 'Décodage Quoted-Printable pour le nom');
+assert(parsedQp[0].firstName === 'Hélène', 'Décodage Quoted-Printable pour le prénom');
+assert(parsedQp[0].phones?.[0]?.number === '+33612345678', 'Nettoyage du préfixe tel: vCard 4.0');
+assert(Boolean(parsedQp[0].notes?.includes('été pliée')), 'Dépliage des lignes longues (RFC line unfolding)');
+
 // 6. Duplicate Detection
 console.log('\nSuite 6: Détection Intelligente des Doublons');
 const existingList: Contact[] = [testContact];
@@ -154,6 +173,38 @@ assert(wa3 === 'https://wa.me/15552345678', 'Nettoyage des parenthèses et tiret
 
 const telUrl = getTelUrl('+33 6 45 78 92 10');
 assert(telUrl === 'tel:+33645789210', 'Formatage du lien tel: standard');
+
+// 9. Devis / Quotes Emailing & Management
+console.log('\nSuite 9: Gestion et Envoi de Devis par E-mail');
+const testQuote: QuoteItem = {
+  id: 'quote-test-1',
+  contactId: testContact.id,
+  recipientEmail: 'client@atelier.fr',
+  recipientName: 'Atelier Céramique',
+  subject: 'Devis Réf DEV-2026-001',
+  message: 'Bonjour, voici notre devis.',
+  amount: 1450,
+  fileName: 'devis_2026.pdf',
+  status: 'sent',
+  sentAt: '2026-10-04T00:00:00.000Z',
+};
+
+const mailto = generateMailtoLink(testQuote);
+assert(mailto.startsWith('mailto:client%40atelier.fr'), 'Lien mailto correctement adressé au destinataire');
+assert(mailto.includes('subject=Devis%20R%C3%A9f%20DEV-2026-001'), 'Objet encodé dans le lien mailto');
+assert(mailto.includes('devis_2026.pdf'), 'Rappel de la pièce jointe dans le corps de l’e-mail');
+
+const formattedCurr = formatCurrency(1450);
+assert(formattedCurr.includes('1') && formattedCurr.includes('450') && formattedCurr.includes('€'), 'Formatage monétaire en euros');
+
+const statusSent = getQuoteStatusInfo('sent');
+assert(statusSent.label === 'Envoyé', 'Libellé statut Envoyé');
+
+const statusPending = getQuoteStatusInfo('pending');
+assert(statusPending.label === 'En attente', 'Libellé statut En attente');
+
+const statusReceived = getQuoteStatusInfo('received');
+assert(statusReceived.label === 'Reçu', 'Libellé statut Reçu');
 
 console.log('\n------------------------------------------------------');
 console.log(`Résultats : ${passedTests}/${totalTests} tests réussis (${failedTests} échec(s)).`);
