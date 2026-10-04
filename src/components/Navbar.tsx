@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Download, Moon, Sun, BookUser, HelpCircle, Database, Tag, Mail, User as UserIcon } from 'lucide-react';
+import { Plus, Download, Moon, Sun, BookUser, HelpCircle, Database, Tag, Mail, User as UserIcon, Copy } from 'lucide-react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { useTheme } from '../hooks/useTheme';
 import { User } from 'firebase/auth';
@@ -14,6 +14,8 @@ interface NavbarProps {
   onToggleTabletCategories?: () => void;
   onOpenEmailAccess?: () => void;
   currentUser?: User | null;
+  onOpenDuplicateManager?: () => void;
+  duplicateCount?: number;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -23,6 +25,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onToggleTabletCategories,
   onOpenEmailAccess,
   currentUser,
+  onOpenDuplicateManager,
+  duplicateCount = 0,
 }) => {
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
   const { theme, toggleTheme } = useTheme();
@@ -94,6 +98,28 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <Tag className="w-3.5 h-3.5 text-sky-500" />
                 <span>Catégories</span>
+              </button>
+            )}
+
+            {/* Manage Duplicates Button (right next to Catégories) */}
+            {onOpenDuplicateManager && (
+              <button
+                onClick={onOpenDuplicateManager}
+                aria-label="Gérer les doublons et nettoyer les contacts"
+                className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl transition ${
+                  duplicateCount > 0
+                    ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-300/80 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/60 shadow-2xs'
+                    : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <Copy className="w-3.5 h-3.5 text-amber-500" />
+                <span className="hidden sm:inline">Gérer les doublons</span>
+                <span className="sm:hidden">Doublons</span>
+                {duplicateCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 font-mono">
+                    {duplicateCount}
+                  </span>
+                )}
               </button>
             )}
 

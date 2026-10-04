@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Contact, SortField, DuplicateMatch, ImportSummary } from './types/contact';
 import { db } from './services/db';
 import { Navbar, ActiveTab } from './components/Navbar';
@@ -9,12 +9,13 @@ import { ContactFormModal } from './components/ContactFormModal';
 import { ImportExportModal } from './components/ImportExportModal';
 import { CompatibilityMatrixModal } from './components/CompatibilityMatrixModal';
 import { DuplicateResolutionModal } from './components/DuplicateResolutionModal';
+import { DuplicateManagerModal } from './components/DuplicateManagerModal';
 import { ClipboardFallbackModal } from './components/ClipboardFallbackModal';
 import { Toast, ToastMessage } from './components/Toast';
 import { EmailAccessModal } from './components/EmailAccessModal';
 import { useFirebaseAuth } from './hooks/useFirebaseAuth';
 import { syncContactsToCloud, fetchContactsFromCloud, deleteContactFromCloud } from './services/firebase';
-import { findDuplicates, mergeContactFields } from './services/duplicate';
+import { findDuplicates, mergeContactFields, findDuplicateGroups, mergeMultipleContacts, DuplicateGroup } from './services/duplicate';
 import { BookUser, Plus, HardDrive, Wifi, WifiOff, X } from 'lucide-react';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
 
@@ -38,6 +39,7 @@ export default function App() {
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
   const [isCompatibilityOpen, setIsCompatibilityOpen] = useState(false);
   const [isEmailAccessOpen, setIsEmailAccessOpen] = useState(false);
+  const [isDuplicateManagerOpen, setIsDuplicateManagerOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
   // Firebase Authentication
@@ -49,6 +51,9 @@ export default function App() {
     incoming: Contact | null;
     match: DuplicateMatch | null;
   }>({ isOpen: false, incoming: null, match: null });
+
+  // Number of duplicate groups
+  const duplicateCount = useMemo(() => findDuplicateGroups(contacts).length, [contacts]);
 
   // Clipboard fallback modal
   const [clipboardFallback, setClipboardFallback] = useState<{
@@ -267,6 +272,131 @@ export default function App() {
     }
   };
 
+  // Full Duplicate Management & Cleanup Handlers
+  const handleMergeDuplicateGroup = async (group: DuplicateGroup, primaryId: string) => {
+    try {
+      const { merged, removedIds } = mergeMultipleContacts(group.contacts, primaryId);
+
+      // 1. Update local storage
+      await db.save(merged);
+      for (const id of removedIds) {
+        await db.delete(id);
+      }
+
+      // 2. Update Firebase Cloud Firestore if authenticated
+      if (user) {
+        await syncContactsToCloud(user.uid, [merged]);
+        for (const id of removedIds) {
+          await deleteContactFromCloud(user.uid, id);
+        }
+      }
+
+      // 3. Update application state
+      setContacts((prev) => {
+        const withoutRemoved = prev.filter((c) => !removedIds.includes(c.id));
+        return withoutRemoved.map((c) => (c.id === merged.id ? merged : c));
+      });
+
+      setSelectedContactId(merged.id);
+
+      setToast({
+        id: `mrg-${Date.now()}`,
+        type: 'success',
+        title: 'Doublons fusionnés avec succès',
+        description: `La fiche de ${merged.firstName || merged.company || merged.lastName} a été consolidée proprement.`,
+      });
+    } catch (err: any) {
+      setToast({
+        id: `err-${Date.now()}`,
+        type: 'error',
+        title: 'Erreur lors de la fusion',
+        description: err.message || 'Impossible de fusionner ce groupe.',
+      });
+    }
+  };
+
+  const handleDeleteDuplicateContact = async (contactId: string) => {
+    try {
+      // 1. Local delete
+      await db.delete(contactId);
+
+      // 2. Cloud delete if authenticated
+      if (user) {
+        await deleteContactFromCloud(user.uid, contactId);
+      }
+
+      // 3. Update state
+      setContacts((prev) => prev.filter((c) => c.id !== contactId));
+
+      if (selectedContactId === contactId) {
+        setSelectedContactId(null);
+      }
+
+      setToast({
+        id: `del-dup-${Date.now()}`,
+        type: 'info',
+        title: 'Doublon supprimé',
+        description: 'La fiche redondante a été retirée définitivement du carnet.',
+      });
+    } catch (err: any) {
+      setToast({
+        id: `err-${Date.now()}`,
+        type: 'error',
+        title: 'Erreur de suppression',
+        description: err.message || 'Impossible de supprimer cette fiche.',
+      });
+    }
+  };
+
+  const handleMergeAllDuplicates = async () => {
+    try {
+      const groups = findDuplicateGroups(contacts);
+      if (groups.length === 0) return;
+
+      let currentList = [...contacts];
+      let totalMergedCount = 0;
+
+      for (const group of groups) {
+        const currentGroupMembers = currentList.filter((c) => group.contactIds.includes(c.id));
+        if (currentGroupMembers.length >= 2) {
+          const { merged, removedIds } = mergeMultipleContacts(currentGroupMembers);
+          await db.save(merged);
+          for (const id of removedIds) {
+            await db.delete(id);
+          }
+
+          if (user) {
+            await syncContactsToCloud(user.uid, [merged]);
+            for (const id of removedIds) {
+              await deleteContactFromCloud(user.uid, id);
+            }
+          }
+
+          currentList = currentList.filter((c) => !removedIds.includes(c.id));
+          currentList = currentList.map((c) => (c.id === merged.id ? merged : c));
+          totalMergedCount += removedIds.length;
+        }
+      }
+
+      setContacts(currentList);
+      setIsDuplicateManagerOpen(false);
+
+      setToast({
+        id: `mrg-all-${Date.now()}`,
+        type: 'success',
+        title: 'Nettoyage complet terminé',
+        description: `${totalMergedCount} fiche(s) en double ont été fusionnées et nettoyées.`,
+      });
+    } catch (err: any) {
+      setToast({
+        id: `err-${Date.now()}`,
+        type: 'error',
+        title: 'Erreur lors du nettoyage',
+        description: err.message || 'Échec de la fusion automatique.',
+      });
+    }
+  };
+
   // Toggle favorite
   const handleToggleFavorite = async (contactId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -333,6 +463,8 @@ export default function App() {
         onToggleTabletCategories={() => setIsTabletSidebarOpen((prev) => !prev)}
         onOpenEmailAccess={() => setIsEmailAccessOpen(true)}
         currentUser={user}
+        onOpenDuplicateManager={() => setIsDuplicateManagerOpen(true)}
+        duplicateCount={duplicateCount}
       />
 
       {/* Tablet & Mobile Slide-over Drawer for Categories & Filters */}
@@ -376,6 +508,11 @@ export default function App() {
                   setIsTabletSidebarOpen(false);
                   setIsCompatibilityOpen(true);
                 }}
+                onOpenDuplicateManager={() => {
+                  setIsTabletSidebarOpen(false);
+                  setIsDuplicateManagerOpen(true);
+                }}
+                duplicateCount={duplicateCount}
               />
             </div>
           </div>
@@ -401,6 +538,8 @@ export default function App() {
                 onSelectCategory={setSelectedCategory}
                 onOpenImportExport={() => setIsImportExportOpen(true)}
                 onOpenCompatibility={() => setIsCompatibilityOpen(true)}
+                onOpenDuplicateManager={() => setIsDuplicateManagerOpen(true)}
+                duplicateCount={duplicateCount}
               />
             </div>
 
@@ -530,6 +669,16 @@ export default function App() {
         onForceCreate={handleForceCreateDuplicate}
         onMerge={handleMergeDuplicate}
         onCancel={() => setDuplicateModal({ isOpen: false, incoming: null, match: null })}
+      />
+
+      {/* Duplicate Manager & Contact Cleaning Modal */}
+      <DuplicateManagerModal
+        isOpen={isDuplicateManagerOpen}
+        onClose={() => setIsDuplicateManagerOpen(false)}
+        contacts={contacts}
+        onMergeGroup={handleMergeDuplicateGroup}
+        onDeleteDuplicate={handleDeleteDuplicateContact}
+        onMergeAll={handleMergeAllDuplicates}
       />
 
       {/* Manual Clipboard Fallback Modal */}

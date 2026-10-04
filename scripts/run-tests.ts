@@ -4,7 +4,7 @@
  */
 import { sanitizeCsvField, exportContactsToCsv, parseCsv, generateSampleCsv } from '../src/services/csv';
 import { contactToVCard, parseVCard, exportContactsToVCard } from '../src/services/vcard';
-import { findDuplicates, normalizeText, normalizePhone, normalizeEmail, mergeContactFields } from '../src/services/duplicate';
+import { findDuplicates, normalizeText, normalizePhone, normalizeEmail, mergeContactFields, findDuplicateGroups, mergeMultipleContacts } from '../src/services/duplicate';
 import { getWhatsAppUrl, getTelUrl, getSmsUrl } from '../src/services/phone';
 import { Contact } from '../src/types/contact';
 
@@ -171,6 +171,52 @@ assert(wa3 === 'https://wa.me/15552345678', 'Nettoyage des parenthèses et tiret
 
 const telUrl = getTelUrl('+33 6 45 78 92 10');
 assert(telUrl === 'tel:+33645789210', 'Formatage du lien tel: standard');
+
+// 9. Gestion des Doublons & Nettoyage
+console.log('\nSuite 9: Gestion des Doublons & Nettoyage');
+const c1: Contact = {
+  ...testContact,
+  id: 'c1',
+  firstName: 'Sophie',
+  lastName: 'Martin',
+  phones: [{ id: 'p1', label: 'Mobile', number: '06 12 34 56 78' }],
+  emails: [{ id: 'e1', label: 'Perso', email: 'sophie.martin@test.fr' }],
+  notes: 'Notes initiales',
+};
+
+const c2: Contact = {
+  ...testContact,
+  id: 'c2',
+  firstName: 'Sophie',
+  lastName: 'Martin',
+  phones: [{ id: 'p2', label: 'Fixe', number: '01 40 50 60 70' }],
+  emails: [{ id: 'e2', label: 'Pro', email: 's.martin@travail.com' }],
+  notes: 'Deuxième note de contact',
+};
+
+const c3: Contact = {
+  ...testContact,
+  id: 'c3',
+  firstName: 'Jean',
+  lastName: 'Dupont',
+  phones: [{ id: 'p3', label: 'Mobile', number: '06 12 34 56 78' }], // same phone as c1
+  emails: [],
+  notes: '',
+};
+
+const duplicateGroups = findDuplicateGroups([c1, c2, c3]);
+assert(duplicateGroups.length >= 2, 'Identification des groupes de doublons (par nom et par numéro)');
+
+const phoneDupGroup = duplicateGroups.find((g) => g.criterion === 'phone');
+assert(Boolean(phoneDupGroup && phoneDupGroup.contacts.length === 2), 'Détection précise des doublons avec même numéro de téléphone');
+
+const nameDupGroup = duplicateGroups.find((g) => g.criterion === 'name');
+assert(Boolean(nameDupGroup && nameDupGroup.contacts.length === 2), 'Détection précise des doublons avec même nom');
+
+const mergedResult = mergeMultipleContacts([c1, c2]);
+assert(mergedResult.merged.phones.length === 2, 'Fusion des numéros de téléphone sans écrasement');
+assert(mergedResult.merged.emails.length === 2, 'Combinaison des adresses e-mails sous la fiche fusionnée');
+assert(mergedResult.removedIds.includes('c2'), 'Identification correcte des identifiants doublons à supprimer');
 
 console.log('\n------------------------------------------------------');
 console.log(`Résultats : ${passedTests}/${totalTests} tests réussis (${failedTests} échec(s)).`);

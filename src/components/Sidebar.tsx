@@ -1,6 +1,6 @@
 import React from 'react';
 import { Contact } from '../types/contact';
-import { Star, Users, Tag, HardDrive, Wifi, WifiOff, FileUp, Sparkles } from 'lucide-react';
+import { Star, Users, Tag, HardDrive, Wifi, WifiOff, FileUp, Sparkles, Copy } from 'lucide-react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 
 interface SidebarProps {
@@ -9,6 +9,8 @@ interface SidebarProps {
   onSelectCategory: (category: string) => void;
   onOpenImportExport: () => void;
   onOpenCompatibility: () => void;
+  onOpenDuplicateManager?: () => void;
+  duplicateCount?: number;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -17,6 +19,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectCategory,
   onOpenImportExport,
   onOpenCompatibility,
+  onOpenDuplicateManager,
+  duplicateCount = 0,
 }) => {
   const isOnline = useOnlineStatus();
 
@@ -77,6 +81,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {favoritesCount}
             </span>
           </button>
+
+          {onOpenDuplicateManager && (
+            <button
+              onClick={onOpenDuplicateManager}
+              className={`w-full min-h-[44px] flex items-center justify-between px-3 py-2 text-xs font-medium rounded-xl transition-colors ${
+                duplicateCount > 0
+                  ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 font-semibold'
+                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-800/50'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Copy className="w-4 h-4 text-amber-500" />
+                <span>Gérer les doublons</span>
+              </div>
+              {duplicateCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 font-mono">
+                  {duplicateCount}
+                </span>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Categories Section */}
