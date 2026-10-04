@@ -11,6 +11,9 @@ import { CompatibilityMatrixModal } from './components/CompatibilityMatrixModal'
 import { DuplicateResolutionModal } from './components/DuplicateResolutionModal';
 import { ClipboardFallbackModal } from './components/ClipboardFallbackModal';
 import { Toast, ToastMessage } from './components/Toast';
+import { EmailAccessModal } from './components/EmailAccessModal';
+import { useFirebaseAuth } from './hooks/useFirebaseAuth';
+import { syncContactsToCloud, fetchContactsFromCloud, deleteContactFromCloud } from './services/firebase';
 import { findDuplicates, mergeContactFields } from './services/duplicate';
 import { BookUser, Plus, HardDrive, Wifi, WifiOff, X } from 'lucide-react';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
@@ -34,6 +37,11 @@ export default function App() {
   const [formInitialContact, setFormInitialContact] = useState<Contact | null>(null);
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
   const [isCompatibilityOpen, setIsCompatibilityOpen] = useState(false);
+  const [isEmailAccessOpen, setIsEmailAccessOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Firebase Authentication
+  const { user, loginWithGoogle, loginWithEmail, logout } = useFirebaseAuth();
 
   // Duplicate resolution
   const [duplicateModal, setDuplicateModal] = useState<{
@@ -84,6 +92,49 @@ export default function App() {
     loadContacts();
   }, [loadContacts]);
 
+  // Cloud Synchronization with Firestore
+  const handleSyncContacts = useCallback(async () => {
+    if (!user) return;
+    setIsSyncing(true);
+    try {
+      // 1. Fetch remote contacts from Firestore
+      const remote = await fetchContactsFromCloud(user.uid);
+      const local = await db.getAll();
+
+      // 2. Merge local and remote
+      const map = new Map<string, Contact>();
+      local.forEach((c) => map.set(c.id, c));
+      remote.forEach((c) => {
+        if (!map.has(c.id) || new Date(c.updatedAt) > new Date(map.get(c.id)!.updatedAt)) {
+          map.set(c.id, c);
+        }
+      });
+
+      const mergedList = Array.from(map.values());
+      await db.bulkSave(mergedList);
+      await syncContactsToCloud(user.uid, mergedList);
+      setContacts(mergedList);
+
+      setToast({
+        id: `sync-${Date.now()}`,
+        type: 'success',
+        title: 'Synchronisation Cloud Réussie',
+        description: `${mergedList.length} contact(s) synchronisés avec votre compte e-mail (${user.email}).`,
+      });
+    } catch (err: any) {
+      console.error('Erreur synchronisation Firestore:', err);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [user]);
+
+  // Trigger sync on user login
+  useEffect(() => {
+    if (user) {
+      handleSyncContacts();
+    }
+  }, [user, handleSyncContacts]);
+
   // Selected contact object
   const selectedContact = contacts.find((c) => c.id === selectedContactId) || null;
 
@@ -104,6 +155,12 @@ export default function App() {
       }
 
       const saved = await db.save(contactPayload);
+
+      // Asynchronously sync to cloud if logged in
+      if (user) {
+        syncContactsToCloud(user.uid, [saved]).catch(console.error);
+      }
+
       setContacts((prev) => {
         const idx = prev.findIndex((c) => c.id === saved.id);
         if (idx >= 0) {
@@ -154,6 +211,9 @@ export default function App() {
   const handleDeleteContact = async (contact: Contact) => {
     try {
       await db.delete(contact.id);
+      if (user) {
+        deleteContactFromCloud(user.uid, contact.id).catch(console.error);
+      }
       setLastDeletedContact(contact);
 
       const remaining = contacts.filter((c) => c.id !== contact.id);
@@ -271,6 +331,8 @@ export default function App() {
         }}
         totalContacts={contacts.length}
         onToggleTabletCategories={() => setIsTabletSidebarOpen((prev) => !prev)}
+        onOpenEmailAccess={() => setIsEmailAccessOpen(true)}
+        currentUser={user}
       />
 
       {/* Tablet & Mobile Slide-over Drawer for Categories & Filters */}
@@ -476,6 +538,19 @@ export default function App() {
         onClose={() => setClipboardFallback({ isOpen: false, text: '', title: '' })}
         textToCopy={clipboardFallback.text}
         title={clipboardFallback.title}
+      />
+
+      {/* Email Access & Cloud Sync Modal */}
+      <EmailAccessModal
+        isOpen={isEmailAccessOpen}
+        onClose={() => setIsEmailAccessOpen(false)}
+        user={user}
+        onLoginGoogle={loginWithGoogle}
+        onLoginEmail={loginWithEmail}
+        onLogout={logout}
+        onSyncContacts={handleSyncContacts}
+        isSyncing={isSyncing}
+        totalContacts={contacts.length}
       />
 
       {/* Toast Notification with Undo */}

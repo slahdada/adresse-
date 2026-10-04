@@ -1,0 +1,83 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with email access",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The email address used to access the application"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "User display name"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Account creation timestamp"
+        }
+      },
+      "required": ["email", "createdAt"]
+    },
+    "Contact": {
+      "title": "Contact",
+      "description": "Contact address book entry for a user",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner user ID"
+        },
+        "firstName": {
+          "type": "string",
+          "description": "First name of contact"
+        },
+        "lastName": {
+          "type": "string",
+          "description": "Last name of contact"
+        },
+        "company": {
+          "type": "string",
+          "description": "Company name"
+        },
+        "jobTitle": {
+          "type": "string",
+          "description": "Job title"
+        },
+        "isFavorite": {
+          "type": "boolean",
+          "description": "Favorite status"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["individual", "company"],
+          "description": "Contact type"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Update timestamp"
+        }
+      },
+      "required": ["userId", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/users/{userId}/contacts/{contactId}": {
+      "schema": "Contact",
+      "description": "User-owned contacts collection"
+    }
+  }
+}

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Plus, Download, Moon, Sun, BookUser, HelpCircle, Database, Tag } from 'lucide-react';
+import { Plus, Download, Moon, Sun, BookUser, HelpCircle, Database, Tag, Mail, User as UserIcon } from 'lucide-react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { useTheme } from '../hooks/useTheme';
+import { User } from 'firebase/auth';
 
 export type ActiveTab = 'contacts' | 'import-export' | 'compatibility';
 
@@ -11,6 +12,8 @@ interface NavbarProps {
   onNewContact: () => void;
   totalContacts: number;
   onToggleTabletCategories?: () => void;
+  onOpenEmailAccess?: () => void;
+  currentUser?: User | null;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -18,6 +21,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   setActiveTab,
   onNewContact,
   onToggleTabletCategories,
+  onOpenEmailAccess,
+  currentUser,
 }) => {
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
   const { theme, toggleTheme } = useTheme();
@@ -89,6 +94,31 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <Tag className="w-3.5 h-3.5 text-sky-500" />
                 <span>Catégories</span>
+              </button>
+            )}
+
+            {/* Email Access / Account Button */}
+            {onOpenEmailAccess && (
+              <button
+                onClick={onOpenEmailAccess}
+                aria-label={currentUser ? `Compte connecté: ${currentUser.email}` : "Accès par e-mail et synchronisation"}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl transition ${
+                  currentUser
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80'
+                    : 'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border border-sky-200/80 dark:border-sky-800/80 hover:bg-sky-100 dark:hover:bg-sky-900/60'
+                }`}
+              >
+                {currentUser ? (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                    <span className="max-w-[110px] sm:max-w-[140px] truncate">{currentUser.email}</span>
+                  </>
+                ) : (
+                  <>
+                    <Mail className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+                    <span>Accès par E-mail</span>
+                  </>
+                )}
               </button>
             )}
 

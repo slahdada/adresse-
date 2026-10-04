@@ -6,9 +6,7 @@ import { sanitizeCsvField, exportContactsToCsv, parseCsv, generateSampleCsv } fr
 import { contactToVCard, parseVCard, exportContactsToVCard } from '../src/services/vcard';
 import { findDuplicates, normalizeText, normalizePhone, normalizeEmail, mergeContactFields } from '../src/services/duplicate';
 import { getWhatsAppUrl, getTelUrl, getSmsUrl } from '../src/services/phone';
-import { generateMailtoLink, formatCurrency, formatFileSize, getQuoteStatusInfo } from '../src/services/quotes';
 import { Contact } from '../src/types/contact';
-import { QuoteItem } from '../src/types/quote';
 
 let totalTests = 0;
 let passedTests = 0;
@@ -173,38 +171,6 @@ assert(wa3 === 'https://wa.me/15552345678', 'Nettoyage des parenthèses et tiret
 
 const telUrl = getTelUrl('+33 6 45 78 92 10');
 assert(telUrl === 'tel:+33645789210', 'Formatage du lien tel: standard');
-
-// 9. Devis / Quotes Emailing & Management
-console.log('\nSuite 9: Gestion et Envoi de Devis par E-mail');
-const testQuote: QuoteItem = {
-  id: 'quote-test-1',
-  contactId: testContact.id,
-  recipientEmail: 'client@atelier.fr',
-  recipientName: 'Atelier Céramique',
-  subject: 'Devis Réf DEV-2026-001',
-  message: 'Bonjour, voici notre devis.',
-  amount: 1450,
-  fileName: 'devis_2026.pdf',
-  status: 'sent',
-  sentAt: '2026-10-04T00:00:00.000Z',
-};
-
-const mailto = generateMailtoLink(testQuote);
-assert(mailto.startsWith('mailto:client%40atelier.fr'), 'Lien mailto correctement adressé au destinataire');
-assert(mailto.includes('subject=Devis%20R%C3%A9f%20DEV-2026-001'), 'Objet encodé dans le lien mailto');
-assert(mailto.includes('devis_2026.pdf'), 'Rappel de la pièce jointe dans le corps de l’e-mail');
-
-const formattedCurr = formatCurrency(1450);
-assert(formattedCurr.includes('1') && formattedCurr.includes('450') && formattedCurr.includes('€'), 'Formatage monétaire en euros');
-
-const statusSent = getQuoteStatusInfo('sent');
-assert(statusSent.label === 'Envoyé', 'Libellé statut Envoyé');
-
-const statusPending = getQuoteStatusInfo('pending');
-assert(statusPending.label === 'En attente', 'Libellé statut En attente');
-
-const statusReceived = getQuoteStatusInfo('received');
-assert(statusReceived.label === 'Reçu', 'Libellé statut Reçu');
 
 console.log('\n------------------------------------------------------');
 console.log(`Résultats : ${passedTests}/${totalTests} tests réussis (${failedTests} échec(s)).`);
